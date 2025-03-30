@@ -1,12 +1,66 @@
-// console.log("starting a new project");
-// import express from node modules
-
 const express = require("express");
 const connectDB = require("./config/database");
-// call this express function
+const User = require("./models/user")
+// call express function
 const app = express();
 
-// first establish connection then listen to the app [app.listen]
+// middleware
+// app.use(express.json())
+// creating an api using HHTP method - [post] 
+app.post("/signup", async (req, res) => {
+    // console.log(req.body);
+
+    // const user = new User(req.body)
+
+    const user = new User ({
+        firstName: "Ishan",
+        lastName: "Kishan",
+        emailId: "kishan@456",
+        password: "ishan@987"
+    })
+    
+    // create an userObject
+    // const userObj = {
+    //     firstName: "Ishan",
+    //     lastName: "Kishan",
+    //     emailId: "kishan@456",
+    //     password: "ishan@987",
+    // }
+
+    // creating a new instance of the user model
+    //         [or]
+    // creating a new user with (userObj) data.
+    // const user = new User(userObj)
+
+    // after creating an instance we have to save it.
+    // after saving this data is saved inside the database.
+    // since, this return us a ppromise we have to use async await and don't forget to use try and catch  
+    try {
+        await user.save();
+        res.send("User Added Successsfully")
+    } catch (err) {
+        res.status(400).send("Error saving the user:" + err.message)
+    }
+})
+
+// creating an GET api -> get user by email
+// app.get("/user", async (req, res) => {
+
+//     const userEmail = req.body.emailId;
+
+//     // now find the user in the database
+//     try {
+//         const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
+//         if (users.length === 0) {
+//             res.status(404).send("user not found")
+//         } else {
+//             res.send(users)
+//         }
+//     } catch(err) {
+//         res.status(400).send("Something went wrong");
+//     }     
+// })
+// first establish connection then listen to the app [app.listen] -> ? correct approach
 connectDB()
 .then(() => {
     console.log("Database connection successfully establish");
