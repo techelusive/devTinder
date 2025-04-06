@@ -39,7 +39,6 @@ app.post("/signup", async (req, res) => {
 app.get("/user", async (req, res) => {
 
     const userEmail = req.body.emailId;
-
     // now find the user in the database
     try {
         const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
