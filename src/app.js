@@ -5,27 +5,19 @@ const User = require("./models/user")
 const app = express();
 
 // middleware
-// app.use(express.json())
-// creating an api using HHTP method - [post] 
+app.use(express.json())
+// creating an api using HTTP method - [post] 
 app.post("/signup", async (req, res) => {
-    // console.log(req.body);
+    console.log(req.body);
 
-    // const user = new User(req.body)
-
-    const user = new User ({
-        firstName: "Ishan",
+    const user = new User(req.body)
+    //create an userObject
+    const userObj = {
+        firstName: "ravi",
         lastName: "Kishan",
-        emailId: "kishan@456",
-        password: "ishan@987"
-    })
-    
-    // create an userObject
-    // const userObj = {
-    //     firstName: "Ishan",
-    //     lastName: "Kishan",
-    //     emailId: "kishan@456",
-    //     password: "ishan@987",
-    // }
+        emailId: "ravi@456gmail.com",
+        password: "ravi@987",
+    }
 
     // creating a new instance of the user model
     //         [or]
@@ -44,22 +36,22 @@ app.post("/signup", async (req, res) => {
 })
 
 // creating an GET api -> get user by email
-// app.get("/user", async (req, res) => {
+app.get("/user", async (req, res) => {
 
-//     const userEmail = req.body.emailId;
+    const userEmail = req.body.emailId;
 
-//     // now find the user in the database
-//     try {
-//         const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
-//         if (users.length === 0) {
-//             res.status(404).send("user not found")
-//         } else {
-//             res.send(users)
-//         }
-//     } catch(err) {
-//         res.status(400).send("Something went wrong");
-//     }     
-// })
+    // now find the user in the database
+    try {
+        const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
+        if (users.length === 0) {
+            res.status(404).send("user not found")
+        } else {
+            res.send(users)
+        }
+    } catch(err) {
+        res.status(400).send("Something went wrong");
+    }     
+})
 // first establish connection then listen to the app [app.listen] -> ? correct approach
 connectDB()
 .then(() => {
