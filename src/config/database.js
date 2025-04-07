@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 
 const connectDB = async () => {
     await mongoose.connect(
-        "mongodb+srv://singhRohit:vFEZDe6zwBL2%40Fh@cluster1.1rmxj.mongodb.net/"
+        "mongodb+srv://singhRohit:vFEZDe6zwBL2%40Fh@cluster1.1rmxj.mongodb.net/devTinder"
     );
 };
 
