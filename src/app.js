@@ -37,19 +37,33 @@ app.post("/signup", async (req, res) => {
 
 // creating an GET api -> get user by email
 app.get("/user", async (req, res) => {
-
     const userEmail = req.body.emailId;
-    // now find the user in the database
+
+    // ? [findOne] find the data of 1 user 
     try {
-        const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
-        if (users.length === 0) {
-            res.status(404).send("user not found")
+        console.log(userEmail);
+        const user = await user.findOne({ emailId: userEmail });
+        if (!user) {
+            res.status(404).send("User not found");
         } else {
-            res.send(users)
-        }
+            res.send(user);
+        } 
     } catch(err) {
         res.status(400).send("Something went wrong");
-    }     
+    }
+
+
+    // now find the user in the database
+    // try {
+    //     const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
+    //     if (users.length === 0) {
+    //         res.status(404).send("user not found")
+    //     } else {
+    //         res.send(users)
+    //     }
+    // } catch(err) {
+    //     res.status(400).send("Something went wrong");
+    // }     
 })
 // first establish connection then listen to the app [app.listen] -> ? correct approach
 connectDB()
