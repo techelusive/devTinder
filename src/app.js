@@ -40,19 +40,17 @@ app.get("/user", async (req, res) => {
     const userEmail = req.body.emailId;
 
     // ? [findOne] find the data of 1 user 
-    try {
-        console.log(userEmail);
-        const user = await user.findOne({ emailId: userEmail });
-        if (!user) {
-            res.status(404).send("User not found");
-        } else {
-            res.send(user);
-        } 
-    } catch(err) {
-        res.status(400).send("Something went wrong");
-    }
-
-
+    // try {
+    //     console.log(userEmail);
+    //     const user = await User.findOne({ emailId: userEmail });
+    //     if (!user) {
+    //         res.status(404).send("User not found");
+    //     } else {
+    //         res.send(user);
+    //     } 
+    // } catch(err) {
+    //     res.status(400).send("Something went wrong");
+    // }
     // now find the user in the database
     // try {
     //     const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
@@ -65,6 +63,29 @@ app.get("/user", async (req, res) => {
     //     res.status(400).send("Something went wrong");
     // }     
 })
+
+// get all the data 
+app.get("/feed", async (req, res) => {
+    try {
+        const users = await User.find({});// if we pass empty here then it will give all the data 
+        res.send(users);
+    } catch(err) {
+        res.status(400).send("Something went wrong");
+    }
+})
+
+// delete the user data
+// app.delete("/user", async (req, res) => {
+//     const userId = req.body.userId;
+//     try {
+//         const user = await User.findByIdAndDelete(userId);
+//         res.send("User deleted successfully");
+//     } catch (err) {
+//         res.status(400).send("Something went wrong");
+//     }
+// });
+
+
 // first establish connection then listen to the app [app.listen] -> ? correct approach
 connectDB()
 .then(() => {
