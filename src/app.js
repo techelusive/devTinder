@@ -90,7 +90,11 @@ app.patch("/user", async (req, res) => {
     const userId = req.body.userId;
     const data = req.body;
     try {
-        const users = await User.findByIdAndUpdate({ _id: userId}, data, {returnDocument: "before" } );
+        const users = await User.findByIdAndUpdate({ _id: userId}, data, {
+            returnDocument: "before" ,
+            //  mongoose doc -> API -> Model -> findByIdAndUpdate -> inside the options -> options.runValidators
+            runValidators: true, 
+        });
         console.log(users);
         res.send("User update Successfully");
     } catch (err) {
