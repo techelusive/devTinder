@@ -3,37 +3,34 @@ const connectDB = require("./config/database");
 const User = require("./models/user")
 // call express function
 const app = express();
+const { validateSignUpData } = require("./utils/Validation");
+const bcrypt = require("bcrypt");
 
 // middleware
 app.use(express.json())
 // creating an api using HTTP method - [post] 
 app.post("/signup", async (req, res) => {
-    console.log(req.body);
-
-    const user = new User(req.body)
-    //create an userObject
-    const userObj = {
-        firstName: "ravi",
-        lastName: "Kishan",
-        emailId: "ravi@456gmail.com",
-        password: "ravi@987",
-    }
-
-    // creating a new instance of the user model
-    //         [or]
-    // creating a new user with (userObj) data.
-    // const user = new User(userObj)
-
-    // after creating an instance we have to save it.
-    // after saving this data is saved inside the database.
-    // since, this return us a ppromise we have to use async await and don't forget to use try and catch  
+    // console.log(req.body);
     try {
+        // validation
+        validateSignUpData(req);
+        const { firstName, lastName, emailId, password } = req.body;
+
+        // Encrypt the password
+        const passwordHash = await bcrypt.hash(password, 10);
+        console.log(passwordHash);
+        // Creating a new instance of the user model
+        // this is the bad way -> const user = new User(req.body)
+        // good way is explicitly mention all the fields 
+        const user = new User({
+            firstName, lastName, emailId, password : passwordHash,
+        }) 
         await user.save();
         res.send("User Added Successsfully")
     } catch (err) {
-        res.status(400).send("Error saving the user:" + err.message)
+        res.status(400).send("ERROR : " + err.message)
     }
-})
+});
 
 // creating an GET api -> get user by email
 app.get("/user", async (req, res) => {
@@ -90,6 +87,17 @@ app.patch("/user", async (req, res) => {
     const userId = req.body.userId;
     const data = req.body;
     try {
+        const ALLOWED_UPDATES = ["photoUrl", "about", "gender", "age", "skills"];
+        const isUpdateAllowed = Object.keys(data).every((k) => 
+            ALLOWED_UPDATES.includes(k)
+        );
+        if (!isUpdateAllowed) {
+            throw new Error("Update not allowed")
+        }
+        if (data?.skills.length > 10) {
+            throw new Error("skills are not more than 10");
+        }
+
         const users = await User.findByIdAndUpdate({ _id: userId}, data, {
             returnDocument: "before" ,
             //  mongoose doc -> API -> Model -> findByIdAndUpdate -> inside the options -> options.runValidators
