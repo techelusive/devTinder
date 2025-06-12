@@ -14,14 +14,14 @@ app.post("/signup", async (req, res) => {
   // console.log(req.body);
   try {
     // validation
-    //validateSignUpData(req);
+    validateSignUpData(req);
+    // only these will be allowed
     const { firstName, lastName, emailId, password } = req.body;
 
     // Encrypt the password
     const passwordHash = await bcrypt.hash(password, 10);
     console.log(passwordHash);
     // Creating a new instance of the user model
-    // this is the bad way -> const user = new User(req.body)
     // good way is explicitly mention all the fields
     const user = new User({
       firstName,
@@ -38,6 +38,21 @@ app.post("/signup", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
+    const { emailId, password } = req.body;
+
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      throw new Error("Invalid Credentials");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (isPasswordValid) {
+      res.send("Login successfully!!!");
+    } else {
+      throw new Error("Password is not correct");
+    }
   } catch (err) {
     res.status(400).send("ERROR : " + err.message);
   }
