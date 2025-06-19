@@ -296,11 +296,7 @@ rev.get(
 
 ---
 
-##### Chapter - 07
-
-Sure! Here's a **detailed explanation** of the code using proper terminology, written in **clear, easy-to-understand language**, but with relevant backend development terms included:
-
----
+## Chapter - 07
 
 ### 📌 **Code Breakdown: Express API for User Signup**
 
@@ -624,3 +620,115 @@ for (let k of Object.keys(data)) {
 It helps prevent users from updating disallowed fields like `password`, `isAdmin`, etc., by **whitelisting** only safe keys.
 
 ---
+
+### CHAPTER - 10
+
+#### 1st half
+
+```js
+app.post("/login", async (req, res) => {
+  try {
+    // extract the emailId and password from the user's input.
+    const { emailId, password } = req.body;
+
+    // Checking whether the user exists with this email
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      throw new Error("Invalid Credentials");
+    }
+    // comparing plaintext input password with hashed password in DB.
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (isPasswordValid) {
+      //! create a jwt token and after that verify the token
+      const token = await jwt.sign({ _id: user._id }, "GURUJIKIJAY@19");
+      res.cookie("token", token);
+      res.send("Login successfully!!!");
+    } else {
+      throw new Error("Invalid Credentials");
+    }
+  } catch (err) {
+    res.status(400).send("ERROR : " + err.message);
+  }
+});
+
+app.get("/profile", async (req, res) => {
+  // get the cookie
+  try {
+    const cookies = req.cookies;
+    // extract the token from the cookie
+    const { token } = cookies;
+    if (!token) {
+      throw new Error("Invalid Credentials");
+    }
+    // validate the token
+    const isTokenValid = await jwt.verify(token, "GURUJIKIJAY@19");
+
+    const { _id } = isTokenValid;
+    // find user by id
+    const user = await User.findById({ _id });
+    if (!user) {
+      throw new Error("User does not exist");
+    }
+    res.send(user);
+    res.send("Reading cookies");
+  } catch (err) {
+    res.status(400).send("ERROR:" + err.message);
+  }
+});
+```
+
+---
+
+#### 2nd half
+
+###### 1. Creating an auth middleware
+
+```js
+const jwt = require("jsonwebtoken");
+const User = require("../models/user");
+
+const userAuth = async (req, res, next) => {
+  try {
+    // Read the token from the cookie
+    const { token } = req.cookies;
+    if (!token) {
+      throw new Error("Invalid token");
+    }
+    // Validate the token
+    const decodeObj = await jwt.verify(token, "GURUJIKIJAY@19");
+    // get the user id from the token
+    const { _id } = decodeObj;
+    // find the user using id.
+    const user = await User.findById(_id);
+    if (!user) {
+      throw new Error("user not found");
+    }
+
+    // attach user with the req.user
+    req.user = user;
+    next();
+  } catch (err) {
+    res.status(400).send("ERROR: " + err.message);
+  }
+};
+
+module.exports = {
+  userAuth,
+};
+```
+
+###### 1. Using the auth middleware
+
+```js
+app.post("/sendConectionRequest", userAuth, async (req, res) => {
+  //! this [userAuth] will handle the authentication once it is used as a middleware.
+  // first login to generate the cookie -> if want to check the profile check it -> check who's send the connection request.
+  // get the user
+  const user = req.user;
+  console.log("Send a connection request");
+
+  res.send(user.firstName + " sent the connection request!");
+});
+```
