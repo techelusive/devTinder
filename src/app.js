@@ -1,21 +1,26 @@
 const express = require("express");
 const connectDB = require("./config/database");
-const User = require("./models/user");
 // call express function
 const app = express();
+const User = require("./models/user");
 const { validateSignUpData } = require("./utils/Validation");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
+const { userAuth } = require("../src/middleware/auth.js");
 
 // middleware -> this middleware now activate for all the routs.
 // create in [chapter - 07] -> for reading json object -> convert this into javascript object to read.
 app.use(express.json());
+app.use(cookieParser());
+
 // creating an api using HTTP method - [post]
 app.post("/signup", async (req, res) => {
   // console.log(req.body);
   try {
     // validation
     validateSignUpData(req);
-    // only these will be allowed
+    // only these will be allowed.
     const { firstName, lastName, emailId, password } = req.body;
 
     // Encrypt the password
@@ -38,110 +43,49 @@ app.post("/signup", async (req, res) => {
 
 app.post("/login", async (req, res) => {
   try {
+    // extract the emailId and password from the user's input.
     const { emailId, password } = req.body;
 
+    // Checking whether the user exists with this email
     const user = await User.findOne({ emailId: emailId });
 
     if (!user) {
       throw new Error("Invalid Credentials");
     }
-
+    // comparing plaintext input password with hashed password in DB.
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (isPasswordValid) {
+      //! create a jwt token and after that verify the token
+      const token = await jwt.sign({ _id: user._id }, "GURUJIKIJAY@19");
+      res.cookie("token", token);
       res.send("Login successfully!!!");
     } else {
-      throw new Error("Password is not correct");
+      throw new Error("Invalid Credentials");
     }
   } catch (err) {
     res.status(400).send("ERROR : " + err.message);
   }
 });
 
-// creating an GET api -> get user by email
-app.get("/user", async (req, res) => {
-  const userEmail = req.body.emailId;
-
-  // ? [findOne] find the data of 1 user
-  // try {
-  //     console.log(userEmail);
-  //     const user = await User.findOne({ emailId: userEmail });
-  //     if (!user) {
-  //         res.status(404).send("User not found");
-  //     } else {
-  //         res.send(user);
-  //     }
-  // } catch(err) {
-  //     res.status(400).send("Something went wrong");
-  // }
-  // now find the user in the database
-  // try {
-  //     const users = await User.find({ emailId: userEmail }) // this returns us a promise so use async await
-  //     if (users.length === 0) {
-  //         res.status(404).send("user not found")
-  //     } else {
-  //         res.send(users)
-  //     }
-  // } catch(err) {
-  //     res.status(400).send("Something went wrong");
-  // }
-});
-
-// get all the data
-app.get("/feed", async (req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
+  // get the cookie
   try {
-    const users = await User.find({}); // if we pass empty here then it will give all the data
-    res.send(users);
+    const user = req.user;
+    res.send(user);
   } catch (err) {
-    res.status(400).send("Something went wrong");
+    res.status(400).send("ERROR:" + err.message);
   }
 });
 
-// delete the user data
-app.delete("/user", async (req, res) => {
-  const userId = req.body.userId;
-  try {
-    const user = await User.findByIdAndDelete(userId);
-    res.send("User deleted successfully");
-  } catch (err) {
-    res.status(400).send("Something went wrong");
-  }
-});
+app.post("/sendConectionRequest", userAuth, async (req, res) => {
+  //! this [userAuth] will handle the authentication once it is used as a middleware.
+  // first login to generate the cookie -> if want to check the profile check it -> check who's send the connection request.
+  // get the user
+  const user = req.user;
+  console.log("Send a connection request");
 
-// update the user data using [patch]
-app.patch("/user/:userId", async (req, res) => {
-  const userId = req.params?.userId;
-  //const userId = req.body.userId;
-  const data = req.body;
-  try {
-    const ALLOWED_UPDATES = [
-      "userId",
-      "photoUrl",
-      "about",
-      "gender",
-      "age",
-      "skills",
-    ];
-    const isUpdateAllowed = Object.keys(data).every((k) =>
-      ALLOWED_UPDATES.includes(k)
-    );
-    if (!isUpdateAllowed) {
-      throw new Error("Update not allowed");
-    }
-    if (data?.skills.length > 10) {
-      throw new Error("skills are not more than 10");
-    }
-
-    const users = await User.findByIdAndUpdate({ _id: userId }, data, {
-      returnDocument: "before",
-      //  mongoose doc -> API -> Model -> findByIdAndUpdate -> inside the options -> options.runValidators
-      runValidators: true,
-    });
-    console.log(users);
-    res.send("User update Successfully");
-  } catch (err) {
-    res.status(400).send("UPDATE FAILED:" + err.message);
-  }
+  res.send(user.firstName + " sent the connection request!");
 });
 
 // first establish connection then listen to the app [app.listen] -> ? correct approach
