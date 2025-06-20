@@ -719,7 +719,7 @@ module.exports = {
 };
 ```
 
-###### 1. Using the auth middleware
+###### 2. Using the auth middleware
 
 ```js
 app.post("/sendConectionRequest", userAuth, async (req, res) => {
@@ -731,4 +731,81 @@ app.post("/sendConectionRequest", userAuth, async (req, res) => {
 
   res.send(user.firstName + " sent the connection request!");
 });
+```
+
+---
+
+###### 3. Expiring the token and cookie
+
+```js
+if (isPasswordValid) {
+  //! create a jwt token and after that verify the token
+  const token = await jwt.sign({ _id: user._id }, "GURUJIKIJAY@19", {
+    expiresIn: "7d",
+  });
+  // Add the token to cookie and send the response back to the user.
+  res.cookie("token", token, {
+    // expire the cookie
+    expires: new Data(Data.now() + 8 * 3600000),
+  });
+  res.send("Login successfully!!!");
+}
+```
+
+###### 4. Offloading the logic of creating a JWT token inside the userSchema ?
+
+- so that we don't have to manage how to create an jwt token inside the API.
+
+```js
+//! create a jwt token and after that verify the token
+//! Don't use [arrow function] over here otherwise things break.
+userSchema.methods.getJWT = async function () {
+  // 'this' refers to the current user document instance
+  const user = this;
+
+  // Create a JWT token by signing the user's _id with a secret key
+  // The token will expire in 7 days
+  const token = await JsonWebTokenError.sign(
+    { _id: user._id }, // Payload containing user ID
+    "GURUJIKIJAY@19", // Secret key used to sign the token
+    {
+      expiresIn: "7d", // Token expiration time
+    }
+  );
+
+  // Return the generated JWT token
+  return token;
+};
+
+// get the current user token back inside an API
+const token = await user.getJWT();
+```
+
+###### 4.Creating another method like above for validate the password and then use it inside an [/login] API.
+
+```js
+// Define a method on the userSchema to validate the password input by the user
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+  // 'this' refers to the current user document instance
+  const user = this;
+
+  // Get the hashed password stored in the database for this user
+  const hashPassword = user.password;
+
+  // Use bcrypt to compare the plaintext password input by the user
+  // with the hashed password stored in the database
+  const isPasswordValid = await bcrypt.compare(
+    passwordInputByUser,
+    hashPassword
+  );
+
+  // Return true if the password matches, otherwise false
+  return isPasswordValid;
+};
+```
+
+- Using the validating password method
+
+```js
+const isPasswordValid = await user.validatePassword(password);
 ```

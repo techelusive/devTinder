@@ -6,7 +6,7 @@ const User = require("./models/user");
 const { validateSignUpData } = require("./utils/Validation");
 const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
-const jwt = require("jsonwebtoken");
+// const jwt = require("jsonwebtoken");
 const { userAuth } = require("../src/middleware/auth.js");
 
 // middleware -> this middleware now activate for all the routs.
@@ -52,13 +52,17 @@ app.post("/login", async (req, res) => {
     if (!user) {
       throw new Error("Invalid Credentials");
     }
-    // comparing plaintext input password with hashed password in DB.
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // use the method of validating the password
+    const isPasswordValid = await user.validatePassword(password);
 
     if (isPasswordValid) {
-      //! create a jwt token and after that verify the token
-      const token = await jwt.sign({ _id: user._id }, "GURUJIKIJAY@19");
-      res.cookie("token", token);
+      // And we don't have to manage how to get the jwt token inside an api.
+      const token = await user.getJWT();
+      // Add the token to cookie and send the response back to the user.
+      res.cookie("token", token, {
+        // expire the cookie
+        expires: new Date(Date.now() + 8 * 3600000),
+      });
       res.send("Login successfully!!!");
     } else {
       throw new Error("Invalid Credentials");

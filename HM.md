@@ -49,10 +49,28 @@
 - What are options in a model.findOneAndUpdate methods, explore more about it.
 - API - Update the user with email ID.
 
-#### Lecture - 8.
+#### Chapter - 8.
 
 - Explore schema types options from the documentation.
 - asd required, unique, lowercase, min, max, trim.
 - Add default.
 - Create a custom validate function for gender.
 - Improve the db schema - put all the appropriate validation on each field in Schemas.
+- Add API level validation on PATCH request and signup post API.
+- Data sanitizing - Add API validation for each field
+- Install Validator
+- Explore validator library function and use validator funcs for password, email, photourl.
+- **Never TRUST** **_req.body_**
+
+#### Chapter - 9.
+
+##### 1st Half
+
+- Validate the data in signup API.
+- Install brcypt package
+- Create a password hash using bcrypt.hash and save the user encryptd password.
+
+##### 2nd Half
+
+- Create a login API
+- Compare passwords using bcrypt and throw error if passwords and emails are invalid.
