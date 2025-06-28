@@ -809,3 +809,185 @@ userSchema.methods.validatePassword = async function (passwordInputByUser) {
 ```js
 const isPasswordValid = await user.validatePassword(password);
 ```
+
+###### 5. Final Code
+
+### App.js
+
+```js
+app.post("/signup", async (req, res) => {
+  // console.log(req.body);
+  try {
+    // validation
+    validateSignUpData(req);
+    // only these will be allowed.
+    const { firstName, lastName, emailId, password } = req.body;
+
+    // Encrypt the password
+    const passwordHash = await bcrypt.hash(password, 10);
+    console.log(passwordHash);
+    // Creating a new instance of the user model
+    // good way is explicitly mention all the fields
+    const user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash,
+    });
+    await user.save();
+    res.send("User Added Successsfully");
+  } catch (err) {
+    res.status(400).send("ERROR : " + err.message);
+  }
+});
+
+app.post("/login", async (req, res) => {
+  try {
+    // extract the emailId and password from the user's input.
+    const { emailId, password } = req.body;
+
+    // Checking whether the user exists with this email
+    const user = await User.findOne({ emailId: emailId });
+
+    if (!user) {
+      throw new Error("Invalid Credentials");
+    }
+    // use the method of validating the password
+    const isPasswordValid = await user.validatePassword(password);
+
+    if (isPasswordValid) {
+      // And we don't have to manage how to get the jwt token inside an api.
+      const token = await user.getJWT();
+      // Add the token to cookie and send the response back to the user.
+      res.cookie("token", token, {
+        // expire the cookie
+        expires: new Date(Date.now() + 8 * 3600000),
+      });
+      res.send("Login successfully!!!");
+    } else {
+      throw new Error("Invalid Credentials");
+    }
+  } catch (err) {
+    res.status(400).send("ERROR : " + err.message);
+  }
+});
+
+app.get("/profile", userAuth, async (req, res) => {
+  try {
+    const user = req.user;
+    res.send(user);
+  } catch (err) {
+    res.status(400).send("ERROR:" + err.message);
+  }
+});
+
+app.post("/sendConectionRequest", userAuth, async (req, res) => {
+  //! this [userAuth] will handle the authentication once it is used as a middleware.
+  // first login to generate the cookie -> if want to check the profile check it -> check who's send the connection request.
+  // get the user
+  const user = req.user;
+  console.log("Send a connection request");
+
+  res.send(user.firstName + " sent the connection request!");
+});
+```
+
+### User.js
+
+```js
+const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
+const validator = require("validator");
+const bcrypt = require("bcrypt");
+
+// creating a user schema
+const userSchema = new mongoose.Schema(
+  {
+    // code
+  },
+  {
+    timestamps: true,
+  }
+);
+
+userSchema.methods.getJWT = async function () {
+  const user = this;
+
+  const token = await jwt.sign({ _id: user._id }, "GURUJIKIJAY@19", {
+    expiresIn: "7d",
+  });
+  return token;
+};
+
+userSchema.methods.validatePassword = async function (passwordInputByUser) {
+  const user = this;
+  const hashPassword = user.password;
+
+  const isPasswordValid = await bcrypt.compare(
+    passwordInputByUser,
+    hashPassword
+  );
+  return isPasswordValid;
+};
+
+// Creating a mongoose model
+
+// Method -1
+const User = mongoose.model("User", userSchema);
+module.exports = User;
+```
+
+#### Auth.js
+
+```js
+// Importing the jsonwebtoken package to handle JWT tokens
+const jwt = require("jsonwebtoken");
+
+// Importing the User model to interact with the users collection in the database
+const User = require("../models/user");
+
+// Middleware to authenticate the user using the JWT token stored in cookies
+const userAuth = async (req, res, next) => {
+  try {
+    // Read the token from the cookies in the incoming request
+    const { token } = req.cookies;
+
+    // If no token is found, throw an error (user is not authenticated)
+    if (!token) {
+      throw new Error("Invalid token");
+    }
+
+    // Validate and decode the JWT token using the secret key
+    const decodeObj = await jwt.verify(token, "GURUJIKIJAY@19");
+
+    // Extract the user ID (_id) from the decoded token payload
+    const { _id } = decodeObj;
+
+    // Look up the user in the database using the extracted user ID
+    const user = await User.findById(_id);
+
+    // If no user is found with that ID, throw an error
+    if (!user) {
+      throw new Error("user not found");
+    }
+
+    // Attach the user document to the request object for use in downstream middleware/routes
+    req.user = user;
+
+    // Call the next middleware or route handler in the stack
+    next();
+  } catch (err) {
+    // If any error occurs (invalid token, user not found, etc.), send a 400 response with the error message
+    res.status(400).send("ERROR: " + err.message);
+  }
+};
+
+// Export the middleware so it can be used in other files
+module.exports = {
+  userAuth,
+};
+```
+
+---
+
+# Chapter - 11
