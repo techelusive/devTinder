@@ -1,16 +1,60 @@
 const express = require("express");
 const requestRouter = express.Router();
 const { userAuth } = require("../middleware/auth");
+const ConnectionRequest = require("../models/connectionRequests");
+const User = require("../models/user");
 
-// Working Perfectly
-requestRouter.post("/sendConectionRequest", userAuth, async (req, res) => {
-  //! this [userAuth] will handle the authentication once it is used as a middleware.
-  // first login to generate the cookie -> if want to check the profile check it -> check who's send the connection request.
-  // get the user
-  const user = req.user;
-  console.log("Send a connection request");
+requestRouter.post(
+  "/request/send/:status/:toUserId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const fromUserId = req.user._id;
+      const toUserId = req.params.toUserId;
+      const status = req.params.status;
 
-  res.send(user.firstName + " sent the connection request!");
-});
+      const allowedStatus = ["ignored", "interested"];
+      if (!allowedStatus.includes(status)) {
+        return res
+          .status(400)
+          .json({ message: "Invalid status type: " + allowedStatus });
+      }
+
+      // If user not present inside the db
+      const toUser = await User.findById(toUserId);
+      if (!toUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // If there is an existing connection request
+      const existingConnectionRequest = await ConnectionRequest.findOne({
+        $or: [
+          { fromUserId, toUserId },
+          { fromUserId: toUserId, touserId: fromUserId },
+        ],
+      });
+      if (existingConnectionRequest) {
+        return res.status(400).send({ message: "Connection Already Exist" });
+      }
+
+      // Creating an instance of connectionRequestModel
+      const connectionRequest = new ConnectionRequest({
+        fromUserId,
+        toUserId,
+        status,
+      });
+
+      const requestData = await connectionRequest.save();
+
+      // send the json
+      res.json({
+        message: "Connection Request Sent Successfully!!",
+        requestData,
+      });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
 
 module.exports = requestRouter;
