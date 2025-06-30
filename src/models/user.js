@@ -25,11 +25,10 @@ const userSchema = new mongoose.Schema(
     },
     gender: {
       type: String,
-      // create a custom function for gender validation
-      validate(value) {
-        if (!["male", "female", "others"].includes(value)) {
-          throw new Error("Gender is not valid");
-        }
+      // i don't need validation after using enum
+      enum: {
+        values: ["Male", "Female", "Other", "male", "female", "other"],
+        message: `{VALUE} is not a gender type`,
       },
     },
     emailId: {
