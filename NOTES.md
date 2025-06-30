@@ -991,3 +991,297 @@ module.exports = {
 ---
 
 # Chapter - 11
+
+```js
+const express = require("express");
+const requestRouter = express.Router();
+const { userAuth } = require("../middleware/auth");
+
+// Working Perfectly
+requestRouter.post("/sendConectionRequest", userAuth, async (req, res) => {
+  //! this [userAuth] will handle the authentication once it is used as a middleware.
+  // first login to generate the cookie -> if want to check the profile check it -> check who's send the connection request.
+  // get the user
+  const user = req.user;
+  console.log("Send a connection request");
+
+  res.send(user.firstName + " sent the connection request!");
+});
+
+module.exports = requestRouter;
+```
+
+---
+
+# Chapter - 12 Creating An Send Connection Request API
+
+###### How should we store the connection request in our databse ?
+
+- Some developers store the connection request directly inside the **user collection**. For example
+
+```js
+connectRequest: ["userId1", "userId2"];
+```
+
+---
+
+###### Why the above way to store connection request is not good ?
+
+👉 Storing connects request directly inside the user collection can cause problems **:**
+
+1. Anyone can send the request to any user.
+2. If the other user accepts or rejects the request, there is a chance that request might stay in the **pending** or **undefined** state.
+3. This can lead to **duplicate**, **unresolved** or **unnecessary data** in your main user collection user.
+4. Too many edge cases can make the system messy and hard to maintain.
+
+**Best Practices:**
+👉 Keep connection request away from the user collection.
+👉 Use a **dedicated collection/table** **_(ex- connectRequest)_** to handle all request data.
+👉 This keeps your data **_clean and organised_**, while making it easier to manage pending, accepted or rejected requests.
+
+---
+
+**Note:** Whenevr there are 2 users making an connection request they should have their own schema. Means 2 entities have their own schema.
+
+#### Creating an Connection Request Schema
+
+###### What information should i store ?
+
+- I need the identity of both the users **(fromUser = sender or toUser = reciever)**
+- Status of that connection request.
+
+```js
+const mongoose = require("mongoose");
+
+const connectionRequestSchema = new mongoose.Schema(
+  {
+    fromUserId: {
+      // this is not an string -> it is an object id
+      type: mongoose.Schema.Types.ObjectId,
+      // strict check
+      required: true,
+    },
+    toUserId: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: {
+        values: ["ignore", "interested", "accepted", "rejected"],
+        messsage: "{VALUE} is incorrect status type",
+      },
+    },
+  },
+  {
+    // when & was connection request sent.
+    timestamps: true,
+  }
+);
+
+// Creating a mongoose model
+const connectionRequestModel = new mongoose.model(
+  "connectionRequest",
+  connectionRequestSchema
+);
+module.exports = connectionRequestModel;
+```
+
+###### What is enum ?
+
+- It is an Array that creates a validator that checks if the value is strictly equal to one of the values given in the array.
+- We only create enum when we want to restrict user with some values.
+- Now, if saomeone tries to write value which is not present inside the array it will throw error.
+- While i am using enum i don't need validation for that particular thing like below.
+
+```js
+// create a custom function for gender validation
+// validate(value) {
+//   if (!["male", "female", "others"].includes(value)) {
+//     throw new Error("Gender is not valid");
+//   }
+// },
+```
+
+#### Creating an connection send POST API
+
+###### Who is fromUserId ?
+
+- The logged in user coming from the login token.
+- It is coming from the userAuth.
+
+###### From where this toUserId coming from ?
+
+- This is coming from the req.params
+
+###### Can we use the same API for Status or for left & right swipe ?
+
+- Yes, we can use the same API for status.
+- By making our status dynamic.
+
+```js
+// :status - dynamic status
+.post("/request/send/:status/:toUserId")
+```
+
+**Note** - The below is the intern-level-code
+
+```js
+// working correctly
+requestRouter.post(
+  "/request/send/:status/:toUserId",
+  userAuth,
+  async (req, res) => {
+    try {
+      const fromUserId = req.user._id;
+      const toUserId = req.params.toUserId;
+      const status = req.params.status;
+
+      // Creating an instance of connectionRequestModel
+      const connectionRequest = new ConnectionRequest({
+        fromUserId,
+        toUserId,
+        status,
+      });
+
+      const requestData = await connectionRequest.save();
+
+      // send the json
+      res.json({
+        message: "Connection Request Sent Successfully!!",
+        requestData,
+      });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+
+module.exports = requestRouter;
+```
+
+###### How to write expert-level code ?
+
+- We don't have any validation here.
+- Corner cases.
+- $or: [].
+- pre save().
+- Indexes.
+
+1. What if i write the **accepted** instead of **ignored & interested** ?.
+
+- This is wrong because this API is only for interested[right swipe] or ignored[left swipe].
+
+```js
+const allowedStatus = ["ignored", "interested"];
+if (!allowedStatus.includes(allowedStatus)) {
+  return res
+    .status(400)
+    .json({ message: "Invalid status type: " + allowedStatus });
+}
+```
+
+#### Corner cases
+
+###### Suppose Akshay send the connection to Elon once Again ?
+
+- Now, it won't be able to that once again.
+- And Elon should not be able to send connectionRequest to Akshay.
+
+```js
+// Why ConnectionRequest -> it is referring to the mongoose model.
+const existingConeectionRequest = await ConnectionRequest.findOne({
+  $or: [
+    { fromUserId, toUserId },
+    { fromUserId: toUserId, toUserId: fromUserId },
+  ],
+});
+```
+
+###### What if attacker type the userId of the which is not even present inside the database ?
+
+- First import User model
+
+```js
+const toUser = await User.findById(toUserId);
+if (!toUserId) {
+  return res.status(400).send("Invalid User");
+}
+```
+
+###### What if Akshay tries to send connection request itself ?
+
+- For this we have to know what is **schemaValidation**.
+- In the connection request we make **schema methods**, similarly we can create **schemaPre** for this this corner case.
+
+###### What is this method and when it is being called ?
+
+- This is like a middleware it is called everytime the connectionRequest will be saved.
+- Whenevr we call the [save()] method ,. it will be called pre save means before save.
+- "save" this is like an event handler that means before i save it this function will be called.
+- It is kind of validation before saving.
+
+**Note:** Write it inside the connectionRequestSchema.
+
+```js
+// function -> is the normal function not an arrow function
+const connectionRequestSchema.pre("save", function (next) {
+  const connectionRequest = this;
+
+  if (connectionRequest.fromUserId.equals(conenctionRequest.toUserId)) {
+    throw new Error("Cannot sand connection request to yourself")
+  }
+  // And nver forget to call next() over here bcs -> it's like an middleware other code will not move ahead.
+  next();
+});
+```
+
+🚨 **Disclaimer:**
+
+- This is not mandatory to write this check over here. We can check the same thing in our API level also.
+
+🚨 **Important Concept: Indexes**
+
+###### When we use **Indexes** ?
+
+- Suppose we have millions of users and lots of connections, and the query to find a specific record becomes very slow:
+
+<!-- ``js
+connectionRequest.findOne({});
+``` -->
+
+- When we're frequently querying based on multiple fields (e.g., both users involved in a connection), we need to index those fields together.
+- This type of index is called a compound index.
+
+###### How to put indexes in our database ?
+
+- We have to use it inside the schema .
+- Use of **Compound Index**
+
+```js
+// It change the order of how mongo dB stores the data inside the database.
+// don't need to create in user.js
+connectionRequestSchema.index({
+  fromUserId: 1,
+  toUserId: 1,
+});
+```
+
+###### Why do we need **Indexes** ?
+
+- Indexes support efficient execution of queries in MongoDB. Without indexes, MongoDB must scan every document in a collection to return query results.
+- If an appropriate index exists for a query, MongoDB uses the index to limit the number of documents it must scan.
+
+- Although indexes improve query performance, adding an index has negative performance impact for write operations.
+- For collections with a high write-to-read ratio, indexes are expensive because each insert must also update any indexes.
+
+**Use Cases**
+If your application is repeatedly running queries on the same fields, you can create an index on those fields to improve performance.
+
+###### What are the Advantages and Disadvantage sof index ?
+
+###### What is inverse queries ?
+
+###### Read more about logical queries.
+
+###### what is $or ?
