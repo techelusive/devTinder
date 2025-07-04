@@ -1285,3 +1285,250 @@ If your application is repeatedly running queries on the same fields, you can cr
 ###### Read more about logical queries.
 
 ###### what is $or ?
+
+---
+
+# Chapter - 13 Creating an Connection Request & GET USER API
+
+**Note:** Whenevr i look at an API just look it from lens that whether it is an POST or GET API.
+
+**Thought process** behind the **POST API** & **GET API**
+
+```js
+post /request/review/:status/:requestId
+```
+
+###### Logic: In Theory
+
+- Akshay send connection to Elon.
+- Check is Elon loggedIn or not.++
+- Status should be interested only.
+- The loggedIn user should only be the toUserId.
+- Validation for status .
+- Validation for requestId -> that means request should be present inside the database.
+
+```js
+// review request API
+// Working perfectly
+requestRouter.post(
+  "/request/review/:status/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      // check user is loggedIn or not
+      const loggedInUser = req.user;
+      const { status, requestId } = req.params;
+
+      const allowedStatus = ["accepted", "rejected"];
+      if (!allowedStatus.includes(status)) {
+        return res.status(404).json({ message: "Status not allowed" });
+      }
+
+      // Now, After checking Status -> we'll check if the requestId is correct or not
+      // I will try to find this connection request from my conenction request model.
+      // I'll try to findOne connection request.
+      // This connection request should have the id of my requestId & toUserId
+      // toUserId -> should be the same person who is logged in.
+      /** 
+     * 🎯 Example:
+     * Suppose if elon musk is logged in so this connection request should have the [toUserId] of elon musk only.
+     * And then the status of this connection request should be [interested].
+     * If the status of the connection request is [not interested], then we should not find it.
+     * 
+     1. What we'll trying to do above ?
+     * I try find the connectionRequest present in the database which has the [requestId] of whatever the [user] is passing in.
+     * 2 user should be the logged in user
+     */
+      const connectionRequest = await ConnectionRequest.findOne({
+        _id: requestId,
+        toUserId: loggedInUser._id,
+        status: "interested",
+      });
+      if (!connectionRequest) {
+        return res
+          .status(404)
+          .json({ message: "Connection request not found" });
+      }
+      // Now i can easily modify my status
+      connectionRequest.status = status; // this status -> is coming from the params which we validated it above.
+
+      // Now i will save the connection request
+      const data = await connectionRequest.save();
+
+      // Send the data successfully
+      // In the 2nd parameter we send the data back
+      res.json({ message: "Connection request: " + status, data });
+
+      //! Note: Always make surethat you validate data and keep your API safe
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+```
+
+---
+
+# Creating a User Router for Handling Received Requests
+
+## **Goal:**
+
+We need to get all the **pending connection requests** for the logged-in user. This API will only return requests that are still in the **"interested"** status (i.e., pending requests).
+
+### **Code:**
+
+```js
+const express = require("express");
+const userRouter = express.Router();
+
+// User Router: Handling received connection requests
+userRouter.get("/user/requests/recieved", userAuth, async (req, res) => {
+  try {
+    // got the loggedInUser from the authentication middleware
+    const loggedInUser = req.user;
+
+    // Step 1: Get all connection requests where this user is the 'toUserId'
+    // and the request status is 'interested' (pending)
+    const connectionRequests = await ConnectionRequest.find({
+      toUserId: loggedInUser._id,
+      status: "interested",
+    })
+      // Step 2: Populate the fromUserId field to get the information about the users
+      // who sent the request (using the relation created with the User schema)
+      .populate("fromUserId", USER_SAFE_DATA);
+
+    // Send the successful response with the fetched data
+    res.json({
+      message: "Data fetched successfully",
+      data: connectionRequests,
+    });
+  } catch (err) {
+    // Error handling if something goes wrong
+    res.status(400).send("ERROR: " + err.message);
+  }
+});
+```
+
+## **Creating a User Router:**
+
+- We have to get all the pending connection requests for the logged-in user.
+- This API will only give us the **pending request**.
+
+```js
+const express = require("express");
+const userRouter = express.Router();
+
+userRouter.get("/user/requests/recieved");
+
+// got the loggedInUser
+const loggedInUser = req.user;
+
+// get the connection request of this loggedInUser
+// .find -> gives us an array
+const connectionRequest = await ConnectionRequest.find({
+  toUserId: loggedInUser._id,
+  status: "interested",
+});
+
+// Now get the name or other information about the loggedInUser who sent the connection requests
+```
+
+### **There are 2 ways to get the info of the logged-in user:**
+
+#### 1. **Poor way:**
+
+Loop over all the connection requests and then one by one find the info about all these **fromUserId**.
+
+#### 2. **Better way:**
+
+Building a relationship between 2 tables (schemas).
+
+- I will **go to the connectionRequest Schema** and then I will **build a relation** from this **connectionRequest collection** to **UserCollection**.
+
+```js
+fromUserId: {
+  ref: "User",
+}
+```
+
+### **After adding the reference:**
+
+- Inside the `user.js` schema:
+
+```js
+.populate("fromUserId", ["firstName", "lastName"])
+// or
+const USER_SAFE_DATA = "firstName lastName about age gender photoUrl skills"
+```
+
+### **What if I didn't pass the 2nd argument like:**
+
+- `"firstName lastName etc..."`?
+- It will send **all** the info about the `fromUserId`.
+
+---
+
+### **Very Important:**
+
+#### When do we use **`ref` & `populate`**?
+
+- Use **`ref` & `populate`** when we want to create a **link** or **relation** between 2 schemas.
+
+---
+
+# Creating a User Router for getting the user connection
+
+- Suppose i sent connection request to Elon & Elon accepted it, this API tells thw who accepted the connection request.
+- We can say that it give us the info of the toUserId.
+
+```js
+// GET user/connection
+userRouter.get("/user/connections", userAuth, async (req, res) => {
+  const loggedInUser = req.user;
+  // got the logged in user
+  /** How would i fetch the people who will connected to me ?
+   * Example -> Suppose akshay sent the connection request to elon and elon accepted it that means
+   * both elon & akshay have 1-1 connection.
+   * Now, mark sent connection request to elon & then elon accepted it.
+   * Now Elon -> 2 connection -> 1 akshay & 1 mark.
+   * & Akshay -> 1 connection 
+   * & Mark -> 1 connection
+   * 
+   * ANS -> We have to find it from the connnection requests collection.
+   * We  basically check for the status of acceptance.
+   * And then we checked whether the loggedInUser -> is from 
+   * 1. fromUserId or,
+   * 2. from toUserId.
+   * 
+   ** How would i check whether the loggedInUser is [fromUserId] or [toUserId] ?
+   * I will write a db query & i will find out all the connection request which basically are accepted & we have to make sure that 
+   * it will be the sender or reciever.
+
+   ** What if user is also coming from the toUserId ? Either the user is coming from the "fromUserId" or "toUserId" .
+   * .populate( "fromUserId", USER_SAFE_DATA).populate("toUserId", USER_SAFE_DATA);
+  */
+  const connectionRequests = await ConnecitonRequest.find({
+    $or: [
+      { toUserId: loggedInUser._id, status: "accepted" },
+      { fromUserId: loggedInUser._id, status: "accepted" },
+    ],
+  })
+    .populate("fromUserId", USER_SAFE_DATA)
+    .populate("toUserId", USER_SAFE_DATA);
+
+  /** But i was expecting not to send the connection request information -> I just want to get data from the "fromUserId".
+   */
+  const data = connectionRequest.map((row) => {
+    if (row.fromUserId._id.toStirng() === loggedInUser._id.toStirng()) {
+      return row.toUserId;
+    }
+    return row.fromUserId;
+  });
+
+  res.json({ data });
+});
+```
+
+---
+
+<!-- # Chapter - 14  -->
