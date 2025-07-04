@@ -4,6 +4,7 @@ const { userAuth } = require("../middleware/auth");
 const ConnectionRequest = require("../models/connectionRequests");
 const User = require("../models/user");
 
+// send connection request API
 requestRouter.post(
   "/request/send/:status/:toUserId",
   userAuth,
@@ -51,6 +52,45 @@ requestRouter.post(
         message: "Connection Request Sent Successfully!!",
         requestData,
       });
+    } catch (err) {
+      res.status(400).send("ERROR: " + err.message);
+    }
+  }
+);
+
+// review request API
+requestRouter.post(
+  "/request/review/:status/:requestId",
+  userAuth,
+  async (req, res) => {
+    try {
+      // check user is loggedIn or not
+      const loggedInUser = req.user;
+      const { status, requestId } = req.params;
+
+      const allowedStatus = ["accepted", "rejected"];
+      if (!allowedStatus.includes(status)) {
+        return res.status(404).json({ message: "Status not allowed" });
+      }
+
+      const connectionRequest = await ConnectionRequest.findOne({
+        _id: requestId,
+        toUserId: loggedInUser._id,
+        status: "interested",
+      });
+      if (!connectionRequest) {
+        return res
+          .status(404)
+          .json({ message: "Connection request not found" });
+      }
+      //modify my status
+      connectionRequest.status = status; // this status -> is coming from the params which we validated it above.
+
+      //save the connection request
+      const data = await connectionRequest.save();
+
+      // Send the data successfully
+      res.json({ message: "Connection request: " + status, data });
     } catch (err) {
       res.status(400).send("ERROR: " + err.message);
     }
