@@ -9,10 +9,12 @@ app.use(cookieParser());
 const authRouter = require("./routes/auths");
 const profileRouter = require("./routes/profiles");
 const requestRouter = require("./routes/requests");
+const userRouter = require("./routes/user");
 
 app.use("/", authRouter);
 app.use("/", profileRouter);
 app.use("/", requestRouter);
+app.use("/", userRouter);
 
 // first establish connection then listen to the app [app.listen] -> ? correct approach
 connectDB()
