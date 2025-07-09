@@ -59,6 +59,7 @@ requestRouter.post(
 );
 
 // review request API
+// loggedIn -> fromUserId -> send connection req. then loggedIn -> toUserId -> accept or reject
 requestRouter.post(
   "/request/review/:status/:requestId",
   userAuth,

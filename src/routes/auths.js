@@ -63,7 +63,6 @@ userAuth.post("/login", async (req, res) => {
   }
 });
 
-//Working but database can't updated
 userAuth.post("/logout", async (req, res) => {
   //send the token from cookie to null
   console.log(req.cookies.token);
