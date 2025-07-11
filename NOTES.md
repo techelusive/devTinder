@@ -1531,4 +1531,56 @@ userRouter.get("/user/connections", userAuth, async (req, res) => {
 
 ---
 
-<!-- # Chapter - 14  -->
+# Chapter - 14 Feed API
+
+**userRouter.get("/feed")**
+
+- This API is responsible for showing the cards of the others users who signup on the platform.
+
+**TODO:**
+
+- User should see all the user cards except:
+  1. his own card
+  2. his connections
+  3. ignored request people
+  4. if i already send the connection request.
+
+```js
+const USER_SAFE_DATA = "firstName lastName photoUrl age gender about skills";
+```
+
+```js
+userRouter.get("/feed", userAuth, async (req, res) => {
+  try {
+    const loggedInUser = req.user;
+
+    // find all the connection requests
+    const connectionRequests = await ConnectionRequest.find({
+      $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }],
+    }).select("fromUserId toUserId");
+
+    // How to hide users from feed
+    // we will create a set data structure
+    // Loop through all these connections requests
+    const hideUsersFromFeed = new Set();
+    connectionRequests.forEach((req) => {
+      hideUsersFromFeed.add(req.fromUserId.toString());
+      hideUsersFromFeed.add(req.toUserId.toString());
+    });
+
+    // find out the remaining users
+    // over here i write the reverse query.
+    const users = await Users.find({
+      // find users by id & id should not be present in hideUsersFromFeed
+      $and: [
+        { _id: { $nin: Array.from(hideUsersFromFeed) } },
+        { _id: { $ne: loggedInUser._id } },
+      ],
+    }).select(USER_SAFE_DATA);
+
+    res.send(users);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+```

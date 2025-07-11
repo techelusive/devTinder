@@ -14,15 +14,13 @@
 
 #### Connection Request Router
 
-- post /request/send/interested/:userId
-- post /request/send/ignored/:userId
-- post /request/review/accepted/:requestId
-- post /request/review/rejected/:requestId
+- post /request/send/:status/:userId
+- post /request/review/:status/:requestId
 
 #### User Router
 
+- get /user/requests
 - get /user/connections
-- get /requests/recieved
 - get /feed -> Gets you the profiles of other users on platform.
 
 status: ignore -> pass, interested -> like, accepted -> right swipe, rejected -> left swipe
